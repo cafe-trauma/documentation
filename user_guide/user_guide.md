@@ -1,3 +1,5 @@
+##Cafe-Trauma Web Questionnaire User Guide
+
 To fill out a questionnaire a user must first log into the application using a username and password.
 ![Visualization Example](https://github.com/cafe-trauma/documentation/raw/master/user_guide/1.png)
 
