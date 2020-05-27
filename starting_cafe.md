@@ -16,6 +16,7 @@
   * [Rdf4j console](#rdf4j-console)
   * [Create a triple repository](#create-a-triple-repository)
   * [Uplaoding triples to the repository](#uplaoding-triples-to-the-repository)
+- [File Permissions](#file-permissions)
 
 <small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
 
@@ -46,15 +47,15 @@ If you need to use a proxy for git, you will have to edit the git config. I edit
 
 Create a folder and clone [cafe-server](https://github.com/cafe-trauma/cafe-server) repository.
 
-You will need to make some changes to `cafe/cafe/settings.py`. If you are on the production server, be sure to set DEBUG to `false`. The domain of the server should be added to the ALLOWED_HOSTS array. The account information for the postgres user is also stored in this file under DATABASES. While you can use the default user (cafeuser) and database name (cafe), you should change the password.
+You will need to make some changes to `cafe/cafe/settings.py`. If you are on the production server, be sure `DEBUG` is set to `False`. The domain of the server should be added to the `ALLOWED_HOSTS` array. The account information for the postgres user is also stored in this file under `DATABASES`. While you can use the default user (cafeuser) and database name (cafe), you should change the password.
 
-<!-- You will need to edit `cafe/cafe/urls.py` and remove `api/` from all the urlpatterns, starting on line 37. While `api/` is needed normally when running the server, our nginx config file removes the need for it.
-
-Ex: `url(r'^api/admin/', admin.site.urls),` should become `url(r'^admin/', admin.site.urls),` -->
+The settings file also reads from a config file. The config file should be named email_config.cfg and contain a JSON objet with `SMTP_HOST_USER` and `SMTP_HOST_PASSWORD`, which correlate to an account that can access the UF SMTP server.
 
 Optional: Create virtual environment
 
 `pip3 install -r requirements.txt`
+
+You will need to create the postgres database before finishing the last two steps.
 
 `python manage.py migrate`
 
@@ -70,17 +71,17 @@ Make sure to remember the information for the superuser. This is how you can log
 
 Create a folder and clone [cafe-app](https://github.com/cafe-trauma/cafe-app) respoitory.
 
-You will need to install angular yourself apart from other npm packages.
+<!-- You will need to install angular yourself apart from other npm packages.
 
 `npm install -g @angular/cli`
 
-If you have permission issues (you probably will), you will need to run as rootm, adnd you may run into an error where the install freezes indefiitely at rollbackFailedOptional. In that case, try the following:
+If you have permission issues (you probably will), you will need to run as root, and you may run into an error where the install freezes indefiitely at rollbackFailedOptional. In that case, try the following:
 
-`sudo npm install --proxy <proxy> install @angular/cli -g`
+`sudo npm install --proxy <proxy> install @angular/cli -g` -->
 
 `npm install`
 
-You will see warnings that you need to update packages but you must resist. Running `npm audit fix` will break it. Some of the listed vulnerabilities are misleading. For instance, js-yaml was listed as a vulnerable package. There are two libraries listed in the package-lock.json file that have js-yaml as a dependency. In one, the required version is 3.13.1. In the other, the required version is 3.7.0. The listed 3.7.0 is raising flags, but the actual installed version is the newer 3.13.1 version. To confirm your package version, you can use `npm info <package> version`.
+You will see warnings that you need to update packages but you must resist. Running `npm audit fix` will break the application. Some of the listed vulnerabilities are misleading. For instance, js-yaml was listed as a vulnerable package. There are two libraries listed in the package-lock.json file that have js-yaml as a dependency. In one, the required version is 3.13.1. In the other, the required version is 3.7.0. The listed 3.7.0 is raising flags, but the actual installed version is the newer 3.13.1 version. To confirm your package version, you can use `npm info <package> version`.
 
 `ng build --prod`
 
@@ -110,21 +111,25 @@ You will need to upload the data later so your user needs the pg_read_server_fil
 
 Next you will need to create the "cafe" database (or a differently named database but it needs to match `name` in the database section of `settings.py`)
 
-`CREATE DATABASE cafe WITH OWNER cafeuser`
+`CREATE DATABASE cafe WITH OWNER cafeuser;`
 
-`CREATE TABLE auth_group
+`CREATE TABLE auth_group;`
 
-For cafe-server to be able to log into the database, you will need to edit `pg_hba.conf`. In order to find the file, you can use `sudo find . -name "pg_hba.conf" -print`. I found it at `/var/lib/pgsql/12/data`. As this folder is owned by the postgres user, I needed to switch to that user with `sudo -su postgres`. Next, edit the IPv4 local connections to use md5 as their method, instead of ident. If you will want to log in to the Postgres server locally, you will also need to change the method for local type from peer to md5 as well. If postgres was running, you will need to restart it after making this changes with `sudo systemctl restart postgresql-12.service`.
+For cafe-server to be able to log into the database, you will need to edit `pg_hba.conf`. In order to find the file, you can use `sudo find / -name "pg_hba.conf" -print`. I found it at `/var/lib/pgsql/12/data`. As this folder is owned by the postgres user, I needed to switch to that user with `sudo -su postgres`. Next, edit the IPv4 local connections to use md5 as their method, instead of ident. If you will want to log in to the Postgres server locally, you will also need to change the method for local type from peer to md5 as well. If postgres was running, you will need to restart it after making these changes with `sudo systemctl restart postgresql-12.service`.
 
 ## Loading data to Postgres
 
 <!-- If you have not already done so, open the Django admin page and open the from_question-to_question section and click on the 'Add from-question-to_question relationship' button in the top right, but you do not need to actually add anything. This should fill in the django_content_type table, which should have 16 rows. -->
 
+The tables have already been copied from the Heroku site and are located in the chare drive in the folder `psql_dumps`. If you need to copy the tables yourself, you can use the following command:
+
+`\COPY <table_name> TO <path/to/save_location.csv> WITH (FORMAT csv, DELIMITER ',', HEADER true);`
+
 When uploading these user-related tables, you will need to remove the row with user_id (id in auth_user and user_id in authtoken_token) **1** in these csvs. That is replaced by the initial superuser you created.
 
 Use the following command to upload the CSVs to the tables:
 
-`COPY <table_name> FROM '<path/to/file.csv>' WITH (FORMAT csv, [HEADER true])`
+`COPY <table_name> FROM '<path/to/file.csv>' WITH (FORMAT csv, [HEADER true]);`
 
 If you copied the headers when creating the CSVs, you will need to indicate `HEADER true`. Otherwise, you can leave this part out.
 
@@ -191,6 +196,22 @@ Edit `$CATALINA_HOME/conf/tomcat-users.xml`
 
 # Nginx Set-up
 
+To install Nginx on a Red Hat system, first create the file `/etc/yum.repos.d/nginx.repo` and fill it in as below:
+
+```
+[nginx]
+name=nginx repo
+baseurl=https://nginx.org/packages/mainline/rhel/7/$basearch/
+gpgcheck=0
+enabled=1
+```
+
+Then run the following commands:
+
+`sudo yum update`
+
+`sudo yum install nginx`
+
 <!-- Nginx on Redhat does not have the sites-available and sites-enabled directories by default so you will need to make them in `/etc/nginx`. Then edit `/etc/nginx/nginx.conf` and add the line `include /etc/nginx/sites-enabled/*;`. -->
 
 You will need a config file with the relevant aliases and proxy_passes. This file should be saved in the `conf.d` directory of the nginx folder. For me, this file is saved as `/etc/nginx/conf.d/nginx_cafe.conf`. Please note that the /images/ section of the config file is dependent on where you saved the cafe-app repository.
@@ -246,6 +267,18 @@ server {
 }
 ```
 
+The following is a helpful edition to the nginx config file for the **dev** server:
+
+```
+   location /rdf4j-server {
+      proxy_pass http://localhost:8080/rdf4j-server;
+   }
+
+   location /rdf4j-workbench {
+      proxy_pass http://localhost:8080/rdf4j-workbench;
+   }
+```
+
 Nginx is started with `sudo systemctl start nginx.service`.
 
 Nginx is stopped with `sudo systemctl stop nginx.service`.
@@ -293,5 +326,28 @@ You can verify a file using `verify path/to/file.rdf`
 
 You can load a file using `load path/to/file.rdf`
 
-You will need to download the owl file of the ontology from [here](https://github.com/OOSTT/OOSTT/blob/master/oostt.owl). You can then use the `load` command to add it to the triplestore.
+You will need to download the owl file of the ontology from [here](https://github.com/OOSTT/OOSTT/blob/master/oostt.owl). You can then use the `load` command to add it to the triplestore. After making changes to the repository via the console, you must restart Tomcat.
 
+I used the api on the heroku site to curl the RDF files for the organizations. These files are saved to the share drive. If you need to pull down more triples, you can modify the endpoint that you are requesting from. The example below goes to the heroku site and is pulling down RDF for organization 34. The token used is the token for a user authorized for the given organization. You can look through the Postgres database to find the desired token.
+
+```
+curl --request GET \
+  --url https://cafe-trauma.herokuapp.com/api/rdf/34 \
+  --header 'authorization: Token <token>'
+```
+
+# File Permissions
+
+Ultimately, file permissions are up to your discretion. UF Health IT requires you to go through them to add a user, so I asked for a `cafe` user. I then created a `baristas` group.
+
+`sudo groupadd baristas`
+
+I then added all developer accounts and the `cafe` user to the `baristas` group.
+
+`sudo usermod -a -G baristas $USER`
+
+Next, change the ownership of the desired files. For example, I changed the ownership of the `/opt/git` directory. You will also need to change permissions on the file so that group members can edit.
+
+`sudo chown -R cafe /opt/git && sudo chgrp -R baristas /opt/git`
+
+`sudo chmod 775 /opt/git`
