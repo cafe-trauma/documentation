@@ -15,7 +15,7 @@
 - [Rdf4j Set-up](#rdf4j-set-up)
   * [Rdf4j console](#rdf4j-console)
   * [Create a triple repository](#create-a-triple-repository)
-  * [Uplaoding triples to the repository](#uplaoding-triples-to-the-repository)
+  * [Uploading triples to the repository](#uplaoding-triples-to-the-repository)
 - [File Permissions](#file-permissions)
 
 <small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
@@ -320,7 +320,7 @@ Repository created
 
 To connect to your respoitory, use `open <repo id>`. In our case, we will be using `open cafe`.
 
-## Uplaoding triples to the repository
+## Uploading triples to the repository
 
 You can verify a file using `verify path/to/file.rdf`
 
