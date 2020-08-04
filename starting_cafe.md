@@ -117,6 +117,10 @@ Next you will need to create the "cafe" database (or a differently named databas
 
 For cafe-server to be able to log into the database, you will need to edit `pg_hba.conf`. In order to find the file, you can use `sudo find / -name "pg_hba.conf" -print`. I found it at `/var/lib/pgsql/12/data`. As this folder is owned by the postgres user, I needed to switch to that user with `sudo -su postgres`. Next, edit the IPv4 local connections to use md5 as their method, instead of ident. If you will want to log in to the Postgres server locally, you will also need to change the method for local type from peer to md5 as well. If postgres was running, you will need to restart it after making these changes with `sudo systemctl restart postgresql-12.service`.
 
+To connect to the database, use the following command (assuming your user is `cafeuser` and your database is `cafe`):
+
+`psql -U cafeuser -d cafe`
+
 ## Loading data to Postgres
 
 <!-- If you have not already done so, open the Django admin page and open the from_question-to_question section and click on the 'Add from-question-to_question relationship' button in the top right, but you do not need to actually add anything. This should fill in the django_content_type table, which should have 16 rows. -->
@@ -351,3 +355,38 @@ Next, change the ownership of the desired files. For example, I changed the owne
 `sudo chown -R cafe /opt/git && sudo chgrp -R baristas /opt/git`
 
 `sudo chmod 775 /opt/git`
+
+# Gunicorn etc. (this section is a WIP)
+
+Create a systemd file at `etc/systemd/system/cafe-django.service`. WorkingDirectory and ExecStart will depend on where you put the cafe-server repo.
+
+```
+[Unit]
+Description=Django server for cafe questionnaire application
+After=network.target
+ 
+[Service]
+WorkingDirectory=/opt/git/cafe-server/cafe/
+ExecStart=/opt/git/cafe-server/venv/bin/gunicorn cafe.wsgi --name cafe-server
+ 
+[Install]
+WantedBy=multi-user.target
+```
+
+`sudo systemctl start cafe-django`
+`sudo systemctl enable cafe-django`
+
+Logs can be seen using `sudo journalctl -u cafe-django`.
+
+```
+[Unit]
+Description=Angular front end for cafe questionnaire application
+After=network-online.target
+
+[Service]
+WorkingDirectory=/opt/git/cafe-app/
+ExecStart=/usr/lib/node_modules/@angular/cli/bin/ng serve --proxy-config proxy.dev.json
+
+[Install]
+WantedBy=multi-user.targe
+```
