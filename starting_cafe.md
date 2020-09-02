@@ -1,57 +1,38 @@
 # Table of Contents
 
-- [Requirements](#requirements)
-- [Firewall exceptions](#firewall-exceptions)
-- [Back-end](#back-end)
-- [Front-end](#front-end)
-- [Postgres](#postgres)
-  * [Setup](#setup)
-  * [Loading data to Postgres](#loading-data-to-postgres)
-- [Tomcat setup](#tomcat-setup)
-  * [Installing locally](#installing-locally)
-  * [Finding the Tomcat directory](#finding-the-tomcat-directory)
-  * [To add users](#to-add-users)
-- [Nginx Set-up](#nginx-set-up)
-- [Rdf4j Set-up](#rdf4j-set-up)
-  * [Rdf4j console](#rdf4j-console)
-  * [Create a triple repository](#create-a-triple-repository)
-  * [Uploading triples to the repository](#uplaoding-triples-to-the-repository)
-- [File Permissions](#file-permissions)
-
-<small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
 
 # Requirements
-
 1. Python (Django)
 2. NPM (Angular)
 3. Java (or OpenJDK)
 4. Tomcat
 5. Nginx
 6. Rdf4j
+7. An account with sudo permissions
 
-# Firewall exceptions
+# Firewall
 
-<!-- If you are using UFHealth IT, you will need to make some exceptions for GitHub and for the package managers.
+You may need to use a proxy for git. In our case, our server was provided by UF Health IT, and they provided a proxy to use. If you are deploying this to your local machine, you will likely not need to do this.
 
-GitHub: github.com, github.io
-
-pip: pypi.io, pypi.org, python.pypi.org, files.pythonhosted.org
-
-npm: registry.npmjs.org -->
-
-If you need to use a proxy for git, you will have to edit the git config. I edited it for the root user since I needed to sudo to clone the repositories in the `/opt/` directory.
+Because I am using the `/opt/` directory, which requirs root access, I also added this proxy for the git config of the root user.
 
 `sudo git config --global <proxy>`
 
-# Back-end
+# File organization
 
-Create a folder and clone [cafe-server](https://github.com/cafe-trauma/cafe-server) repository.
+When deploying locally, the locations of your downloads do not matter much. On the actual server, I cloned the repositories to `/opt/git/` (I created the `git` directory). You can clone them to a different location, but this will affect the nginx config later on, so be sure to update it accordingly.
+
+# Back end: cafe-server
+
+The back end is handled by the [cafe-server](https://github.com/cafe-trauma/cafe-server) repository.
+
+`git clone https://github.com/cafe-trauma/cafe-server.git`
 
 You will need to make some changes to `cafe/cafe/settings.py`. If you are on the production server, be sure `DEBUG` is set to `False`. The domain of the server should be added to the `ALLOWED_HOSTS` array. The account information for the postgres user is also stored in this file under `DATABASES`. While you can use the default user (cafeuser) and database name (cafe), you should change the password.
 
-The settings file also reads from a config file. The config file should be named email_config.cfg and contain a JSON objet with `SMTP_HOST_USER` and `SMTP_HOST_PASSWORD`, which correlate to an account that can access the UF SMTP server.
+The settings file also reads from a config file. The config file should be named email_config.cfg and contain a JSON object with `SMTP_HOST_USER` and `SMTP_HOST_PASSWORD`, which correlate to an account that can access the UF SMTP server. There is an example in the repository that can be used as a template.
 
-Optional: Create virtual environment
+Optional: Create virtual environment with `python -m venv venv` and connect with `source venv/bin/activate`. To close the virtual environment, use `deactivate`.
 
 `pip3 install -r requirements.txt`
 
@@ -59,39 +40,19 @@ You will need to create the postgres database before finishing the last two step
 
 `python manage.py migrate`
 
+**Do not create more than one superuser until you have loaded the data into the postgres database (instructions below)**. This will cause issues with the key in the postgres table for users.
+
 `./manage createsuperuser`
 
 Make sure to remember the information for the superuser. This is how you can log into the Django admin page.
 
-**Do not create more than one superuser until you have loaded the data (instructions below)**. This will cause issues with the key on the users.
-
 `./manage runserver`
 
-# Front-end
+# Postgres
 
-Create a folder and clone [cafe-app](https://github.com/cafe-trauma/cafe-app) respoitory.
+If you are using macOS, you can look up a guide for installing postgres. One option is using homebrew: `brew install postgresql`. You can then start it with `pg_ctl -D /usr/local/var/postgres start` and then accessed with `psql postgres`.
 
-<!-- You will need to install angular yourself apart from other npm packages.
-
-`npm install -g @angular/cli`
-
-If you have permission issues (you probably will), you will need to run as root, and you may run into an error where the install freezes indefiitely at rollbackFailedOptional. In that case, try the following:
-
-`sudo npm install --proxy <proxy> install @angular/cli -g` -->
-
-`npm install`
-
-You will see warnings that you need to update packages but you must resist. Running `npm audit fix` will break the application. Some of the listed vulnerabilities are misleading. For instance, js-yaml was listed as a vulnerable package. There are two libraries listed in the package-lock.json file that have js-yaml as a dependency. In one, the required version is 3.13.1. In the other, the required version is 3.7.0. The listed 3.7.0 is raising flags, but the actual installed version is the newer 3.13.1 version. To confirm your package version, you can use `npm info <package> version`.
-
-`ng build --prod`
-
-`ng s --proxy-config proxy.dev.json` or `ng s --proxy-config proxy.prod.json` for development or production, respectively
-
-# Postgres 
-
-## Setup
-
-The following steps initialize the database and start (and set to autostart) the postgresql-12 service
+If you are using Debian, the following steps initialize the database and start (and set to autostart) the postgresql-12 service
 
 `sudo /usr/pgsql-12/bin/postgresql-12-setup initdb`
 
@@ -99,7 +60,9 @@ The following steps initialize the database and start (and set to autostart) the
 
 You can check the status of postgres with `systemctl status postgresql-12.service`.
 
-You will need to make the user described in the databases section of `cafe-server/cafe/cafe/settings.py` (the link to this repo can be found in the back-end section of this document). To connect, first switch to the postgres user with `sudo su - postgres` and then connect with `psql`.
+To connect, first switch to the postgres user with `sudo su - postgres` and then connect with `psql`.
+
+You will need to make the user described in the databases section of `cafe-server/cafe/cafe/settings.py`.
 
 You can edit the settings.py file to choose the password for the cafeuser. Make sure to use the same password in the settings file as you do when creating the cafeuser. It is advisable to change the password listed in the settings file rather than using the default.
 
@@ -115,21 +78,25 @@ Next you will need to create the "cafe" database (or a differently named databas
 
 `CREATE TABLE auth_group;`
 
-For cafe-server to be able to log into the database, you will need to edit `pg_hba.conf`. In order to find the file, you can use `sudo find / -name "pg_hba.conf" -print`. I found it at `/var/lib/pgsql/12/data`. As this folder is owned by the postgres user, I needed to switch to that user with `sudo -su postgres`. Next, edit the IPv4 local connections to use md5 as their method, instead of ident. If you will want to log in to the Postgres server locally, you will also need to change the method for local type from peer to md5 as well. If postgres was running, you will need to restart it after making these changes with `sudo systemctl restart postgresql-12.service`.
+(If you are setting up the database on macOS, you do not need to worry about the next paragraph)
+
+For cafe-server to be able to log into the database, you will need to edit `pg_hba.conf`. In order to find the file, you can use `sudo find / -name "pg_hba.conf" -print`. I found it at `/var/lib/pgsql/12/data`. As this folder is owned by the postgres user, I needed to switch to that user with `sudo -su postgres`. Next, edit the IPv4 local connections to use `md5` as their method, instead of `ident`. If you will want to log in to the Postgres server locally, you will also need to change the method for local type from `peer` to `md5` as well. If postgres was running, you will need to restart it after making these changes with `sudo systemctl restart postgresql-12.service`.
 
 To connect to the database, use the following command (assuming your user is `cafeuser` and your database is `cafe`):
 
 `psql -U cafeuser -d cafe`
 
-## Loading data to Postgres
+If you are on the Debian server and have not switched to the postgres user, use:
 
-<!-- If you have not already done so, open the Django admin page and open the from_question-to_question section and click on the 'Add from-question-to_question relationship' button in the top right, but you do not need to actually add anything. This should fill in the django_content_type table, which should have 16 rows. -->
+`sudo -u postgres psql -U cafeuser -d cafe`
 
-The tables have already been copied from the Heroku site and are located in the chare drive in the folder `psql_dumps`. If you need to copy the tables yourself, you can use the following command:
+## Loading data into Postgres
+
+The tables have already been copied from the Heroku site and are located in the BMI share drive in the folder `HOBI/BMI/CAFE/psql_dumps`. If you need to copy the tables yourself, you can use the following command:
 
 `\COPY <table_name> TO <path/to/save_location.csv> WITH (FORMAT csv, DELIMITER ',', HEADER true);`
 
-When uploading these user-related tables, you will need to remove the row with user_id (id in auth_user and user_id in authtoken_token) **1** in these csvs. That is replaced by the initial superuser you created.
+When uploading the user-related tables auth_user and authtoken_token, you will need to remove the row with the user id (`id` in auth_user and `user_id` in authtoken_token) **1** in these csvs. That is replaced by the initial superuser you created.
 
 Use the following command to upload the CSVs to the tables:
 
@@ -158,15 +125,21 @@ This method is quick for uploading the data, but Django doesn't seem to register
 
 `SELECT SETVAL ((SELECT pg_get_serial_sequence('<table_name>', 'id')), <start_number>, false);`
 
-Every table uses the name 'id' for its primary key column, so that will never need to be changed. The 'false' flag is for the is_called flag. If it were set to true, the incrementation would start at start_number + 1. You will need to find the start number by checking the id_column of the tables. Unfortunately, you can not just do a count of the rows. Some tables have skipped id numbers (presumably from previously deleted rows). My recommendation:
+Every table uses the name 'id' for its primary key column, so that will never need to be changed. The 'true' flag is for the is_called flag. It means the start_number has already been used, so, if true, the table should start counting at start_number + 1. You will need to find the start number by checking the id_column of the tables. Unfortunately, you can not just do a count of the rows. Some tables have skipped id numbers (presumably from previously deleted rows). My recommendation:
 
 `SELECT id FROM <table_name> ORDER BY id DESC limit 1;`
 
-# Tomcat setup
+In my case, I added 1 to the final id number and used the false is_called flag. You can also just use the final id number and set that flag to true.
 
-## Installing locally
+# Front end: cafe-app
 
-Download [Tomcat core](https://tomcat.apache.org/download-80.cgi) or have it installed on the server by IT. If Tomcat is installed for you, you will not need to do the rest of the setup steps in this section. It will likely be at `/etc/tomcat/`.
+The front end is handled by the [cafe-app](https://github.com/cafe-trauma/cafe-app) respoitory.
+
+`git clone https://github.com/cafe-trauma/cafe-app.git`
+
+# Tomcat
+
+Download [Tomcat core](https://tomcat.apache.org/download-80.cgi) or have it installed on the server by IT. If Tomcat is installed for you by IT, you will not need to do the rest of the setup steps in this section. I followed the instructions [here](https://wolfpaulus.com/tomcat/), which are for macOS Catalina.
 
 Move the unarchived distribution
 
@@ -174,7 +147,7 @@ Move the unarchived distribution
 
 `sudo mv ~/Downloads/apache-tomcat-9.0.30 /usr/local`
 
-Creat a symlink
+Create a symlink. You may need to first remove an old symlink (if you have no old symlink, this command will do nothing so you can run it freely).
 
 `sudo rm -f /Library/Tomcat`
 
@@ -190,15 +163,17 @@ Make the scripts executable
 
 ## Finding the Tomcat directory
 
-When installing on your local machine, you will usually find the Tomcat directory at `/Library/Tomcat`. However, if IT has installed Tomcat, this may not be the case. You will need to find where $CATALINA_HOME points to. To do this, you can use `ps aux | grep catalina`. In my case, it was at `usr/share/tomcat`
+When installing on your local machine, if you followed the above instructions, you will find the Tomcat directory at `/Library/Tomcat`. However, if IT has installed Tomcat, this may not be the case. You will need to find where $CATALINA_HOME points to. To do this, you can use `ps aux | grep catalina`. In my case, it was at `usr/share/tomcat`
 
-To start and stop Tomcat, use `$CATALINA_HOME/bin/startup.sh` and `$CATALINA_HOME/bin/shutdown.sh` respectively. On an IT-provided server, you may need to use `sudo tomcat start` and `sudo tomcat stop` as well.
+## Starting and Ssopping Tomcat
 
-## To add users
+To start and stop Tomcat locally, use `$CATALINA_HOME/bin/startup.sh` and `$CATALINA_HOME/bin/shutdown.sh` respectively.
 
-Edit `$CATALINA_HOME/conf/tomcat-users.xml`
+On an IT-provided server, use `sudo tomcat start` and `sudo tomcat stop`. If this does not work, contact an IT representetive. It is important that Tomcat be a service for configuring on-boot setup later.
 
-# Nginx Set-up
+# Nginx
+
+When deploying locally, you need not use Nginx. The downside is that images will not work on your local deployment, but the website should otherwise be fully functional.
 
 To install Nginx on a Red Hat system, first create the file `/etc/yum.repos.d/nginx.repo` and fill it in as below:
 
@@ -215,8 +190,6 @@ Then run the following commands:
 `sudo yum update`
 
 `sudo yum install nginx`
-
-<!-- Nginx on Redhat does not have the sites-available and sites-enabled directories by default so you will need to make them in `/etc/nginx`. Then edit `/etc/nginx/nginx.conf` and add the line `include /etc/nginx/sites-enabled/*;`. -->
 
 You will need a config file with the relevant aliases and proxy_passes. This file should be saved in the `conf.d` directory of the nginx folder. For me, this file is saved as `/etc/nginx/conf.d/nginx_cafe.conf`. Please note that the /images/ section of the config file is dependent on where you saved the cafe-app repository.
 
@@ -235,12 +208,10 @@ server {
    }
 
    location /static {
-       # alias /opt/git/cafe-server/cafe/static;
        proxy_pass http://localhost:8000/static/;
    }
 
    location /graphs {
-       # alias /opt/git/cafe-server/cafe/graphs;
        proxy_pass http://localhost:8000/graphs/;
    }
 
@@ -271,7 +242,9 @@ server {
 }
 ```
 
-The following is a helpful edition to the nginx config file for the **dev** server:
+The following is a helpful edition to the nginx config file for the **dev** server (they should be added within the server section, before the final closing bracket `}`):
+
+**Do not add these to the prod server.**
 
 ```
    location /rdf4j-server {
@@ -287,29 +260,49 @@ Nginx is started with `sudo systemctl start nginx.service`.
 
 Nginx is stopped with `sudo systemctl stop nginx.service`.
 
-# Rdf4j Set-up
+# RDF4J
 
 Download [rdf4j sdk](https://rdf4j.org/download/)
 
-I created the directory `/opt/rdf4j` to place the extracted rdf4j folder.
+On the server, I created the directory `/opt/rdf4j` to place the extracted rdf4j folder. Locally, feel free to place this anywhere.
 
-Move the server and workbench files to the webapps directory. The location on our server is `/usr/share/tomcat/webapps`. To find the webapps folder, you can use `ps aux | grep catalina`. Alternatively, you can move them to a different folder as long as you update `Tomcat/server.xml` with the location of that folder. The server and workbench are war files that Tomcat will unzip. You do not need to extract them yourself.
+You will need to move the server and workbench files to the Tomcat webapps directory. The location on our server is `/usr/share/tomcat/webapps`. As mentioned above, this is the `$CATALINA_HOME` directory found by running `ps aux | grep catalina`. The server and workbench are war files that Tomcat will unzip. You do not need to unzip them yourself. If they do not unzip automaticaaly, then they are not in the correct folder.
 
-The following steps are run after Tomcat has been started.
+## Limiting access to the triplestore
 
-## Rdf4j console
+On a local instance, this is not necessary. However, when you put RDF4J on a server (prod or dev), you should limit access to it. Before editing the files mentioned, make sure Tomcat is off.
 
-Within the rdf4j folder, navigate to `bin/`, where there is a `console.bat` and `console.sh`. Either can be used to connect to the console.
+## Connect to RDF4J console
+
+Tomcat must be running to use RDF4J.
+
+Within the RDF4J folder, navigate through the extracted eclipse directory to the `bin` directory, which should contain a `console.bat` and `console.sh`. Either can be used to connect to the console.
+
+`/opt/rdf4j/eclipse-rdf4j-3.0.4/bin/console.sh`
 
 Connect to your server.
 
 `connect http://localhost:8080/rdf4j-server`
 
-You can show the various repositories by typing `show repositories` or `show r` and connect to one with `connect <respoitory>` or connect to the default one using `connect default`. Use `disconnect` to disconnect.
+You can show the various repositories by typing `show repositories` or `show r`, and you can connect to one with `connect <repository>` or connect to the default one using `connect default`. Use `disconnect` to disconnect.
 
-The repositories used by the server belong to Tomcat. I found them at `/usr/share/tomcat/.RDF4J/server/`, which then contains the appropriate `respoitories` directory. You can use `sudo find / -name 'repositories'` to find all possible `respositories` directories. You will need to log in to the console as tomcat with `sudo -u tomcat /opt/rdf4j/eclipse-rdf4j-3.0.4/bin/console.sh`. To connect to the correct directory, you may need to use `connect /usr/share/tomcat/.RDF4J/server/`.
+The repositories used by the server belong to Tomcat. Locally, I found it easier to connect to rdf4j-workbench through my browser at `http://localhost:8080/rdf4j-workbench` and create the repository there. I created a `native` respository.
+
+Note: `8080` is the default port for Tomcat. If you have changed Tomcat's port, then that is what you will need to connect to.
+
+On the server, you will need to find the repository directory belonging to Tomcat. You can find them using `sudo find / -name 'repositories'` to find all possible `repositories` directories and then selecting the one that is a subdirectory of a `tomcat/.RDF4J` directory. I found the folder at `/usr/share/tomcat/.RDF4J/server/`.
+
+You will also need to log in to the console at tomcat in order to have permission to access this directory.
+
+`sudo -u tomcat /opt/rdf4j/eclipse-rdf4j-3.0.4/bin/console.sh`
+
+You may get a message saying `Illegal value for property workdir`. You can ignore this. Next, connect to the correct directory.
+
+`connect /usr/share/tomcat/.RDF4J/server/`
 
 ## Create a triple repository
+
+After connecting:
 
 ```
 > create native
@@ -324,7 +317,9 @@ Repository created
 
 To connect to your respoitory, use `open <repo id>`. In our case, we will be using `open cafe`.
 
-## Uploading triples to the repository
+If you have connected to the workbench through your browser, the sidebar should have an option called `New repository` under `Repositories` on the left.
+
+## Uploading triples
 
 You can verify a file using `verify path/to/file.rdf`
 
@@ -340,26 +335,23 @@ curl --request GET \
   --header 'authorization: Token <token>'
 ```
 
-# File Permissions
+I have placed the rdf files for these approved organizations on the BMI share drive under `/HOBI/BMI/CAFE/org_triples`.
 
-Ultimately, file permissions are up to your discretion. UF Health IT requires you to go through them to add a user, so I asked for a `cafe` user. I then created a `baristas` group.
+If you have connected to the workbench through your browser, check if you are connected to the correct repository by looking at the top right corner and checking what `Repository:` says. If you are connected to the wrong repository or it says `- none -`, click `Respoitories` in the left sidebar and then click on the repository you want. Then go to the `Add` option under `Modify` and upload the files from there (just choose the correct file and then click `Upload`).
 
-`sudo groupadd baristas`
+# Creating service files
 
-I then added all developer accounts and the `cafe` user to the `baristas` group.
+This section does not apply to a local instance, where you will simply run django and angular in open tabs of your terminal.
 
-`sudo usermod -a -G baristas $USER`
+If the server is restarted for whatever reason, we would like all the website services to boot automatically rather than having to be manually started. We can use system services for this. The postgres service file was already enabled to start on boot-up. Nginx and Tomcat are also already service files, so they need only be enabled to start on bootup.
 
-Next, change the ownership of the desired files. For example, I changed the ownership of the `/opt/git` directory. You will also need to change permissions on the file so that group members can edit.
+`sudo systemctl enable nginx.service`
 
-`sudo chown -R cafe /opt/git && sudo chgrp -R baristas /opt/git`
+`sudo systemctl enable tomcat`
 
-`sudo chmod 775 /opt/git`
+For the Django and Angular repositories, you will need to create service files in the directory `/etc/systemd/`.
 
-# Gunicorn etc. (this section is a WIP)
-
-Create a systemd file at `etc/systemd/system/cafe-django.service`. WorkingDirectory and ExecStart will depend on where you put the cafe-server repo.
-
+`cafe-django.service`
 ```
 [Unit]
 Description=Django server for cafe questionnaire application
@@ -373,11 +365,7 @@ ExecStart=/opt/git/cafe-server/venv/bin/gunicorn cafe.wsgi --name cafe-server
 WantedBy=multi-user.target
 ```
 
-`sudo systemctl start cafe-django`
-`sudo systemctl enable cafe-django`
-
-Logs can be seen using `sudo journalctl -u cafe-django`.
-
+`cafe-angular.service`
 ```
 [Unit]
 Description=Angular front end for cafe questionnaire application
@@ -388,5 +376,27 @@ WorkingDirectory=/opt/git/cafe-app/
 ExecStart=/usr/lib/node_modules/@angular/cli/bin/ng serve --proxy-config proxy.dev.json
 
 [Install]
-WantedBy=multi-user.targe
+WantedBy=multi-user.target
 ```
+
+You can start the service with `sudo systemctl start cafe-django` and stop with `sudo systemctl stop cafe-django`. You can check the status with `sudo systemctl status cafe-django`.
+
+You will need to enable both with `sudo systemctl enable cafe-django` (and `sudo systemctl enable cafe-angular`).
+
+In order to check what services are enabled, you can use `systemctl list-unit-files | grep enabled`.
+
+# File Permissions
+
+Ultimately, file permissions are up to your discretion. UF Health IT requires you to go through them to add a user, so I asked for a `cafe` user. I then created a `baristas` group.
+
+`sudo groupadd baristas`
+
+I then added all developer accounts and the `cafe` user to the `baristas` group.
+
+`sudo usermod -a -G baristas <user>`
+
+Next, change the ownership of the desired files. For example, I changed the ownership of the `/opt/git` directory. You will also need to change permissions on the file so that group members can edit.
+
+`sudo chown -R cafe /opt/git && sudo chgrp -R baristas /opt/git`
+
+`sudo chmod 775 /opt/git`
