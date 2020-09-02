@@ -123,7 +123,7 @@ When uploading the data to the Postgres database, you will need to upload in a w
 
 This method is quick for uploading the data, but Django doesn't seem to register the taken primary keys when this method is used so you will need to set the start value for all non-empty tables (which are all the tables above), **except the table authtoken_token**. The format for this is:
 
-`SELECT SETVAL ((SELECT pg_get_serial_sequence('<table_name>', 'id')), <start_number>, false);`
+`SELECT SETVAL ((SELECT pg_get_serial_sequence('<table_name>', 'id')), <start_number>, true);`
 
 Every table uses the name 'id' for its primary key column, so that will never need to be changed. The 'true' flag is for the is_called flag. It means the start_number has already been used, so, if true, the table should start counting at start_number + 1. You will need to find the start number by checking the id_column of the tables. Unfortunately, you can not just do a count of the rows. Some tables have skipped id numbers (presumably from previously deleted rows). My recommendation:
 
