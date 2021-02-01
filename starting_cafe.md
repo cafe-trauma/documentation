@@ -1,4 +1,25 @@
 # Table of Contents
+- [Requirements](#requirements)
+- [Firewall](#firewall)
+- [File organization](#file-organization)
+- [Postgres: Set-up](#postgres--set-up)
+  * [Connecting](#connecting)
+- [Back end: cafe-server](#back-end--cafe-server)
+- [Postgres: Loading data](#postgres--loading-data)
+- [Front end: cafe-app](#front-end--cafe-app)
+- [Tomcat](#tomcat)
+  * [Finding the Tomcat directory](#finding-the-tomcat-directory)
+  * [Starting and Stopping Tomcat](#starting-and-stopping-tomcat)
+- [Nginx](#nginx)
+- [RDF4J](#rdf4j)
+  * [Limiting access to the triplestore](#limiting-access-to-the-triplestore)
+  * [Connect to RDF4J console](#connect-to-rdf4j-console)
+  * [Create a triple repository](#create-a-triple-repository)
+  * [Uploading triples](#uploading-triples)
+- [Creating service files](#creating-service-files)
+- [File Permissions](#file-permissions)
+
+<small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
 
 
 # Requirements
