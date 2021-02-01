@@ -25,7 +25,7 @@ Next, delete the answers. Answers are stored in questionnaire_answer, but some m
 
 `SELECT * FROM questionnaire_answer WHERE organization_id=20 AND text IS NULL AND integer IS NULL AND yesno IS NULL`
 
-Not all of these answers will also have a row in questionnaire_answer_option, but some will. Compile the ids of these answers (listed in the id column) into a list seperated by comma. Replace the list in the example, with your own.
+Not all of these answers will also have a row in questionnaire_answer_option, but some will. Compile the ids of these answers (listed in the id column) into a list seperated by comma. Replace the list in the example, with your own. It is okay if this list contains answer ids that are not in questionnaire_answer_options.
 
 `DELETE FROM questionnaire_answer_options WHERE answer_id IN (31, 32, 33, 34)`
 

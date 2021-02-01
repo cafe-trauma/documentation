@@ -14,13 +14,57 @@
 
 You may need to use a proxy for git. In our case, our server was provided by UF Health IT, and they provided a proxy to use. If you are deploying this to your local machine, you will likely not need to do this.
 
-Because I am using the `/opt/` directory, which requirs root access, I also added this proxy for the git config of the root user.
+Because I am using the `/opt/` directory, which requires root access, I also added this proxy for the git config of the root user.
 
 `sudo git config --global <proxy>`
 
 # File organization
 
 When deploying locally, the locations of your downloads do not matter much. On the actual server, I cloned the repositories to `/opt/git/` (I created the `git` directory). You can clone them to a different location, but this will affect the nginx config later on, so be sure to update it accordingly.
+
+# Postgres: Set-up
+
+Django requires some set-up ahead of time for the Postgres database.
+
+If you are using macOS, you can look up a guide for installing postgres. One option is using homebrew: `brew install postgresql`. You can then start it with `pg_ctl -D /usr/local/var/postgres start` and then accessed with `psql postgres`.
+
+If you are using Debian, the following steps initialize the database and start (and set to autostart) the postgresql-12 service
+
+`sudo /usr/pgsql-12/bin/postgresql-12-setup initdb`
+
+`sudo systemctl enable --now postgresql-12`
+
+You can check the status of postgres with `systemctl status postgresql-12.service`.
+
+To connect, first switch to the postgres user with `sudo su - postgres` and then connect with `psql`.
+
+You will need to make a user, who will then be referenced in the databases section of `cafe-server/cafe/cafe/settings.py` when you set up. The settings file uses `cafeuser` as the username, which you can use, but you should change the password.
+
+`CREATE USER cafeuser WITH PASSWORD '<password>' CREATEDB;`
+
+You will need to upload the data later so your user needs the pg_read_server_files role.
+
+`GRANT pg_read_server_files TO cafeuser;`
+
+Next you will need to create the "cafe" database (or a differently named database but it needs to match `name` in the database section of `settings.py`)
+
+`CREATE DATABASE cafe WITH OWNER cafeuser;`
+
+<!-- `CREATE TABLE auth_group;` -->
+
+(If you are setting up the database on macOS, you do not need to worry about the next paragraph)
+
+For cafe-server to be able to log into the database, you will need to edit `pg_hba.conf`. In order to find the file, you can use `sudo find / -name "pg_hba.conf" -print`. I found it at `/var/lib/pgsql/12/data`. As this folder is owned by the postgres user, I needed to switch to that user with `sudo -su postgres`. Next, edit the IPv4 local connections to use `md5` as their method, instead of `ident`. If you will want to log in to the Postgres server locally, you will also need to change the method for local type from `peer` to `md5` as well. If postgres was running, you will need to restart it after making these changes with `sudo systemctl restart postgresql-12.service`.
+
+## Connecting
+
+To connect to the database, use the following command (assuming your user is `cafeuser` and your database is `cafe`):
+
+`psql -U cafeuser -d cafe`
+
+If you are on the Debian server and have not switched to the postgres user, use:
+
+`sudo -u postgres psql -U cafeuser -d cafe`
 
 # Back end: cafe-server
 
@@ -36,9 +80,7 @@ Optional: Create virtual environment with `python -m venv venv` and connect with
 
 `pip3 install -r requirements.txt`
 
-You will need to create the postgres database before finishing the last two steps.
-
-`python manage.py migrate`
+<!-- `python manage.py migrate` -->
 
 **Do not create more than one superuser until you have loaded the data into the postgres database (instructions below)**. This will cause issues with the key in the postgres table for users.
 
@@ -48,49 +90,9 @@ Make sure to remember the information for the superuser. This is how you can log
 
 `./manage runserver`
 
-# Postgres
+# Postgres: Loading data
 
-If you are using macOS, you can look up a guide for installing postgres. One option is using homebrew: `brew install postgresql`. You can then start it with `pg_ctl -D /usr/local/var/postgres start` and then accessed with `psql postgres`.
-
-If you are using Debian, the following steps initialize the database and start (and set to autostart) the postgresql-12 service
-
-`sudo /usr/pgsql-12/bin/postgresql-12-setup initdb`
-
-`sudo systemctl enable --now postgresql-12`
-
-You can check the status of postgres with `systemctl status postgresql-12.service`.
-
-To connect, first switch to the postgres user with `sudo su - postgres` and then connect with `psql`.
-
-You will need to make the user described in the databases section of `cafe-server/cafe/cafe/settings.py`.
-
-You can edit the settings.py file to choose the password for the cafeuser. Make sure to use the same password in the settings file as you do when creating the cafeuser. It is advisable to change the password listed in the settings file rather than using the default.
-
-`CREATE USER cafeuser WITH PASSWORD '<password>' CREATEDB;`
-
-You will need to upload the data later so your user needs the pg_read_server_files role.
-
-`GRANT pg_read_server_files TO cafeuser;`
-
-Next you will need to create the "cafe" database (or a differently named database but it needs to match `name` in the database section of `settings.py`)
-
-`CREATE DATABASE cafe WITH OWNER cafeuser;`
-
-`CREATE TABLE auth_group;`
-
-(If you are setting up the database on macOS, you do not need to worry about the next paragraph)
-
-For cafe-server to be able to log into the database, you will need to edit `pg_hba.conf`. In order to find the file, you can use `sudo find / -name "pg_hba.conf" -print`. I found it at `/var/lib/pgsql/12/data`. As this folder is owned by the postgres user, I needed to switch to that user with `sudo -su postgres`. Next, edit the IPv4 local connections to use `md5` as their method, instead of `ident`. If you will want to log in to the Postgres server locally, you will also need to change the method for local type from `peer` to `md5` as well. If postgres was running, you will need to restart it after making these changes with `sudo systemctl restart postgresql-12.service`.
-
-To connect to the database, use the following command (assuming your user is `cafeuser` and your database is `cafe`):
-
-`psql -U cafeuser -d cafe`
-
-If you are on the Debian server and have not switched to the postgres user, use:
-
-`sudo -u postgres psql -U cafeuser -d cafe`
-
-## Loading data into Postgres
+Log in to Postgres.
 
 The tables have already been copied from the Heroku site and are located in the BMI share drive in the folder `HOBI/BMI/CAFE/psql_dumps`. If you need to copy the tables yourself, you can use the following command:
 
@@ -137,9 +139,23 @@ The front end is handled by the [cafe-app](https://github.com/cafe-trauma/cafe-a
 
 `git clone https://github.com/cafe-trauma/cafe-app.git`
 
+Naigate to the repository.
+
+`npm install`
+
+To actually run Angular, use the following for dev and prod respectively.
+
+`ng s --proxy-config proxy.dev.json`
+
+`ng s --proxy-config proxy.prod.json`
+
+Running the front-end this way will always be used when running locally, but on the server this should be set up as a system service (further instructions below).
+
 # Tomcat
 
-Download [Tomcat core](https://tomcat.apache.org/download-80.cgi) or have it installed on the server by IT. If Tomcat is installed for you by IT, you will not need to do the rest of the setup steps in this section. I followed the instructions [here](https://wolfpaulus.com/tomcat/), which are for macOS Catalina.
+Download [Tomcat core](https://tomcat.apache.org/download-80.cgi) or have it installed on the server by IT. If Tomcat is installed for you by IT, you will not need to do the rest of the setup steps in this section.
+
+I followed the instructions [here](https://wolfpaulus.com/tomcat/), which are for macOS Catalina.
 
 Move the unarchived distribution
 
@@ -165,15 +181,15 @@ Make the scripts executable
 
 When installing on your local machine, if you followed the above instructions, you will find the Tomcat directory at `/Library/Tomcat`. However, if IT has installed Tomcat, this may not be the case. You will need to find where $CATALINA_HOME points to. To do this, you can use `ps aux | grep catalina`. In my case, it was at `usr/share/tomcat`
 
-## Starting and Ssopping Tomcat
+## Starting and Stopping Tomcat
 
 To start and stop Tomcat locally, use `$CATALINA_HOME/bin/startup.sh` and `$CATALINA_HOME/bin/shutdown.sh` respectively.
 
-On an IT-provided server, use `sudo tomcat start` and `sudo tomcat stop`. If this does not work, contact an IT representetive. It is important that Tomcat be a service for configuring on-boot setup later.
+On an IT-provided server, use `sudo tomcat start` and `sudo tomcat stop`. If this does not work, contact an IT representative. It is important that Tomcat be a service for configuring on-boot setup later.
 
 # Nginx
 
-When deploying locally, you need not use Nginx. The downside is that images will not work on your local deployment, but the website should otherwise be fully functional.
+When deploying locally, you need not use Nginx. The website should be mostly functional, however images will not work on your local deployment and there are some changes that will need to be made to `cafe-server/cafe/cafe/settings.py` and `cafe-server/cafe/questionnaire/rdf.py`, which will be discussed later.
 
 To install Nginx on a Red Hat system, first create the file `/etc/yum.repos.d/nginx.repo` and fill it in as below:
 
@@ -244,7 +260,7 @@ server {
 
 The following is a helpful edition to the nginx config file for the **dev** server (they should be added within the server section, before the final closing bracket `}`):
 
-**Do not add these to the prod server.**
+**DO NOT ADD THESE TO PROD SERVER**
 
 ```
    location /rdf4j-server {
@@ -266,11 +282,81 @@ Download [rdf4j sdk](https://rdf4j.org/download/)
 
 On the server, I created the directory `/opt/rdf4j` to place the extracted rdf4j folder. Locally, feel free to place this anywhere.
 
-You will need to move the server and workbench files to the Tomcat webapps directory. The location on our server is `/usr/share/tomcat/webapps`. As mentioned above, this is the `$CATALINA_HOME` directory found by running `ps aux | grep catalina`. The server and workbench are war files that Tomcat will unzip. You do not need to unzip them yourself. If they do not unzip automaticaaly, then they are not in the correct folder.
+You will need to move the server and workbench files to the Tomcat webapps directory. The location on our server is `/usr/share/tomcat/webapps`. As mentioned above, this is the `$CATALINA_HOME` directory found by running `ps aux | grep catalina`. The server and workbench are war files that Tomcat will unzip. You do not need to unzip them yourself. If they do not unzip automatically, then they are not in the correct folder.
 
 ## Limiting access to the triplestore
 
 On a local instance, this is not necessary. However, when you put RDF4J on a server (prod or dev), you should limit access to it. Before editing the files mentioned, make sure Tomcat is off.
+
+These instructions are made using [this](https://rdf4j.org/documentation/tools/server-workbench/#access-rights-and-security) documentation.
+
+The first step is to tell RDF4J what functions to limit, and to whom. This required edition of the `web.xml` file, which should be located under `rdf4j-server/WEB-INF` in your Tomcat webapps folder.
+
+First to enable authentication, add the following to the `<web-app>` element:
+
+```
+    <login-config>
+        <auth-method>BASIC</auth-method>
+        <realm-name>rdf4j</realm-name>
+    </login-config>
+```
+
+Next, add the actual restrictions. These are also in the `<web-app>` element.
+
+```
+<security-constraint>
+        <web-resource-collection>
+            <web-resource-name>Read  access to 'cafe' repository</web-resource-name>
+            <url-pattern>/repositories/cafe</url-pattern>
+            <http-method>GET</http-method>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>viewer</role-name>
+            <role-name>editor</role-name>
+        </auth-constraint>
+    </security-constraint>
+
+    <security-constraint>
+        <web-resource-collection>
+            <web-resource-name>Editing  access to 'cafe' repository</web-resource-name>
+            <url-pattern>/repositories/cafe</url-pattern>
+            <url-pattern>/repositories/cafe/statements</url-pattern>
+            <http-method>POST</http-method>
+            <http-method>PUT</http-method>
+            <http-method>DELETE</http-method>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>editor</role-name>
+        </auth-constraint>
+    </security-constraint>
+```
+
+Finally, again in the `<web-app>` element, add the security roles.
+
+```
+    <security-role>
+        <description>Read access to repository data</description>
+        <role-name>viewer</role-name>
+    </security-role>
+
+    <security-role>
+        <description>Read/write access to repository data</description>
+        <role-name>editor</role-name>
+    </security-role>
+```
+
+Now you will need to configure Tomcat to understand these users and check for a password. (You will probably need to `sudo` this command.)
+
+`vim /etc/tomcat/tomcat-users.xml`
+
+Add the following to the `<tomcat-users>` element. Be sure to change the **password**, username, and roles as needed.
+
+```
+<user username="viewer" password="secret" roles="viewer" />
+<user username="editor" password="password" roles="viewer,editor" />
+```
+
+Once this is done, start Tomcat again and your triplestore should be restricting access.
 
 ## Connect to RDF4J console
 
@@ -349,7 +435,7 @@ If the server is restarted for whatever reason, we would like all the website se
 
 `sudo systemctl enable tomcat`
 
-For the Django and Angular repositories, you will need to create service files in the directory `/etc/systemd/`.
+For the Django and Angular repositories, you will need to create service files in the directory `/etc/systemd/system`.
 
 `cafe-django.service`
 ```
